@@ -1,3 +1,8 @@
+/* ปิดการเลื่อนในแนวนอน ให้เลื่อนได้แค่ขึ้น–ลง */
+html, body {
+  overflow-x: hidden;
+}
+
 body {
   font-family: "Prompt", "Sarabun", Arial, sans-serif;
   background: #e8f5ff;
