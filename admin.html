@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>แอดมิน - รวมทะเล ข้าวต้มปลา</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .admin-container { max-width: 600px; margin: 36px auto 36px auto; background: #fff; border-radius: 16px; box-shadow: 0 4px 24px 0 rgba(0,64,128,0.11); padding: 22px 16px 32px 16px; }
+    .admin-head { font-size: 1.2em; font-weight: bold; margin-bottom: 12px; color: #2076c7; }
+    .table-selector { margin-bottom: 18px; }
+    .order-table { width: 100%; border-collapse: collapse; margin-bottom: 18px;}
+    .order-table th, .order-table td { border: 1px solid #d0e5f7; padding: 8px 7px; }
+    .order-table th { background: #e6f3ff; font-weight: 600;}
+    .order-table td { font-size: 1.04em; }
+    .order-action-btn { background: #2299dd; color: #fff; border: none; border-radius: 7px; padding: 5px 15px; font-size: 1em; cursor: pointer;}
+    .order-action-btn:hover { background: #1a6fb6;}
+    .delete-btn { background: #e6372b !important; }
+    .delete-btn:hover { background: #a72116 !important;}
+    .input-qty { width: 38px; text-align:center; font-size:1em; padding:2px 5px; border-radius:5px; border:1px solid #c2e5f6;}
+    #admin-result { margin-bottom: 15px;}
+    #refresh-btn { background: #5fbfb2; color:#fff; border:none; border-radius:6px; padding:7px 18px; font-size:1em; cursor:pointer;}
+    #refresh-btn:hover { background: #329f8a; }
+    @media (max-width:650px) {
+      .admin-container { max-width:99vw; border-radius:9px; padding:13px 2vw 17vw 2vw; }
+      .order-table th, .order-table td { padding: 5px 2px; font-size: 0.96em;}
+    }
+  </style>
+</head>
+<body>
+  <div class="admin-container">
+    <div class="admin-head">🔑 แอดมิน - จัดการออเดอร์ร้านรวมทะเล ข้าวต้มปลา</div>
+    <div class="table-selector">
+      <label for="select-table">เลือกโต๊ะ: </label>
+      <select id="select-table"></select>
+      <button id="refresh-btn" onclick="loadAdminOrders()">รีเฟรชข้อมูล</button>
+    </div>
+    <div id="admin-result"></div>
+    <div id="admin-orders"></div>
+  </div>
+  <script src="js/admin.js"></script>
+</body>
+</html>
