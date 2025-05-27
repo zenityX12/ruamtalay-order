@@ -1,8 +1,8 @@
-// js/admin.js
+// js/admin.js (เวอร์ชั่น Soft Delete เช็คบิล)
 
 const scriptURL = "https://api.sheetbest.com/sheets/67a68e64-dca9-4eea-99b7-0431c5786cf6";
 
-// เก็บออเดอร์ดิบ
+// เก็บข้อมูลออเดอร์ดิบ
 let orderRaw = [];
 
 async function loadAdminOrders() {
@@ -12,7 +12,7 @@ async function loadAdminOrders() {
   const data = await res.json();
   orderRaw = data;
 
-  // หาทุกโต๊ะที่ยังมีออเดอร์ unpaid+qty>0
+  // หาโต๊ะที่ยังมีออเดอร์ unpaid+qty>0
   const tableMap = {};
   data.forEach(row => {
     if ((row.status ?? "unpaid") === "unpaid" && Number(row.qty) > 0) {
@@ -61,8 +61,9 @@ function renderOrderTable(tableNum) {
     orders[row.menu].qty += Number(row.qty || 1);
     orders[row.menu].price = Number(row.price) || 0;
     orders[row.menu].note = row.note || "";
-    orders[row.menu].ids.push(row._id || null); // ใช้ _id เฉพาะกรณีที่ SheetBest มี
+    orders[row.menu].ids.push(row._id || null);
   });
+  // Filter เฉพาะที่ qty > 0
   const orderArr = Object.values(orders).filter(o => o.qty > 0);
 
   let html = "";
@@ -163,35 +164,40 @@ window.adminUpdateQty = async function(table, menu, newQty) {
   loadAdminOrders();
 }
 
+// เช็คบิล = soft delete ทุกเมนูที่ยังค้าง (ของโต๊ะนี้)
 window.adminCheckout = async function(table) {
   if (!confirm(`เช็คบิลโต๊ะ ${table} ยืนยัน?`)) return;
-  // เปลี่ยน status = paid ให้ทุกรายการของโต๊ะนี้ที่ยัง unpaid
-  let changed = false;
-  for (const row of orderRaw) {
+  // รวมยอดที่ค้างของแต่ละเมนูในโต๊ะนี้
+  const orderToDelete = {};
+  orderRaw.forEach(row => {
     if (String(row.table).trim() === String(table) &&
-        (row.status ?? "unpaid") === "unpaid") {
+        (row.status ?? "unpaid") === "unpaid" &&
+        row.menu) {
+      if (!orderToDelete[row.menu]) orderToDelete[row.menu] = 0;
+      orderToDelete[row.menu] += Number(row.qty || 1);
+    }
+  });
+  // ใส่ row ติดลบทีเดียวทุกเมนู
+  for (const [menu, qty] of Object.entries(orderToDelete)) {
+    if (qty > 0) {
       await fetch(scriptURL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           table: table,
-          menu: row.menu,
-          price: row.price,
-          qty: 0,
-          status: "paid",
+          menu: menu,
+          price: 0,
+          qty: -qty,
+          status: "unpaid",
           note: "เช็คบิล"
         })
       });
-      changed = true;
     }
   }
-  if (changed) {
-    document.getElementById('admin-result').innerHTML = "✅ เช็คบิลเรียบร้อย";
-    setTimeout(()=>{document.getElementById('admin-result').innerHTML='';},2000);
-    loadAdminOrders();
-  }
+  document.getElementById('admin-result').innerHTML = "✅ เช็คบิลเรียบร้อย";
+  setTimeout(()=>{document.getElementById('admin-result').innerHTML='';},2000);
+  loadAdminOrders();
 }
 
 // โหลดข้อมูลครั้งแรก
 loadAdminOrders();
-
