@@ -44,7 +44,7 @@ document.getElementById('select-table').onchange = function() {
   renderOrderTable(this.value);
 };
 
-// ฟังก์ชันแสดงออเดอร์ของโต๊ะนั้น
+// ฟังก์ชันแสดงออเดอร์ของโต๊ะนั้น (เฉพาะ status=unpaid และ qty>0)
 function renderOrderTable(tableNum) {
   // รวมยอดออเดอร์ของโต๊ะนี้ที่ยังไม่จ่าย
   const orders = {};
@@ -62,7 +62,8 @@ function renderOrderTable(tableNum) {
       };
     }
     orders[row.menu].qty += Number(row.qty || 1);
-    orders[row.menu].price = Number(row.price) || 0;
+    // ใช้ราคาขายจริง (ไม่เอาราคา 0 ถ้ามี)
+    if (Number(row.price) > 0) orders[row.menu].price = Number(row.price);
     orders[row.menu].note = row.note || "";
     orders[row.menu].ids.push(row._id || null);
   });
@@ -106,10 +107,10 @@ function renderOrderTable(tableNum) {
   document.getElementById('admin-orders').innerHTML = html;
 }
 
-// Soft delete ด้วยการเพิ่มแถว qty ติดลบ
+// Soft delete ด้วยการเพิ่มแถว qty ติดลบ (status=unpaid)
 window.adminDeleteOrder = async function(table, menu) {
   if (!confirm(`ต้องการลบ "${menu}" ของโต๊ะ ${table} ใช่ไหม?`)) return;
-  // หา qty ปัจจุบัน
+  // หา qty ปัจจุบัน และ price
   let qty = 0;
   let price = 0;
   orderRaw.forEach(row => {
@@ -117,7 +118,7 @@ window.adminDeleteOrder = async function(table, menu) {
         (row.status ?? "unpaid") === "unpaid" &&
         row.menu === menu) {
       qty += Number(row.qty || 1);
-      price = Number(row.price) || 0;
+      if (Number(row.price) > 0) price = Number(row.price);
     }
   });
   if (qty <= 0) return;
@@ -137,9 +138,9 @@ window.adminDeleteOrder = async function(table, menu) {
   setTimeout(loadAdminOrders, 900);
 }
 
+// แก้จำนวน = ใส่ row diff (status=unpaid)
 window.adminUpdateQty = async function(table, menu, newQty) {
   newQty = Math.max(1, Math.min(99, Number(newQty)));
-  // หา qty ปัจจุบัน
   let qty = 0;
   let price = 0;
   orderRaw.forEach(row => {
@@ -147,11 +148,10 @@ window.adminUpdateQty = async function(table, menu, newQty) {
         (row.status ?? "unpaid") === "unpaid" &&
         row.menu === menu) {
       qty += Number(row.qty || 1);
-      price = Number(row.price) || 0;
+      if (Number(row.price) > 0) price = Number(row.price);
     }
   });
   if (qty === newQty) return;
-  // ใส่แถว qty = newQty - oldQty
   const diff = newQty - qty;
   if (diff === 0) return;
   await fetch(scriptURL, {
@@ -169,7 +169,7 @@ window.adminUpdateQty = async function(table, menu, newQty) {
   setTimeout(loadAdminOrders, 900);
 }
 
-// เช็คบิล = soft delete ทุกเมนูที่ยังค้าง (ของโต๊ะนี้) ด้วย status=paid และราคาจริง
+// เช็คบิล = soft delete ทุกเมนูที่ยังค้าง (status=paid, ราคาจริง)
 window.adminCheckout = async function(table) {
   if (!confirm(`เช็คบิลโต๊ะ ${table} ยืนยัน?`)) return;
 
@@ -182,7 +182,7 @@ window.adminCheckout = async function(table) {
     if (!row.menu) return;
     if (!orders[row.menu]) orders[row.menu] = 0;
     orders[row.menu] += Number(row.qty || 1);
-    prices[row.menu] = Number(row.price) || 0; // จำราคาจริงไว้
+    if (Number(row.price) > 0) prices[row.menu] = Number(row.price);
   });
 
   for (const [menu, qty] of Object.entries(orders)) {
@@ -193,7 +193,7 @@ window.adminCheckout = async function(table) {
         body: JSON.stringify({
           table: table,
           menu: menu,
-          price: prices[menu] || 0,  // <<== ใช้ราคาจริง
+          price: prices[menu] || 0,
           qty: -qty,
           status: "paid",
           note: "เช็คบิล"
