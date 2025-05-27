@@ -2,11 +2,12 @@
 
 // ==== CONFIG ====
 const MENUS = window.MENU_GROUPS;
-const scriptURL = "https://api.sheetbest.com/sheets/67a68e64-dca9-4eea-99b7-0431c5786cf6"; // เปลี่ยน URL ตามของคุณ
+const scriptURL = "https://api.sheetbest.com/sheets/67a68e64-dca9-4eea-99b7-0431c5786cf6";
 
 // ==== CART ====
 let cart = {};
 
+// ==== MENU LIST ====
 function renderMenuList() {
   let html = '';
   MENUS.forEach(group => {
@@ -24,6 +25,7 @@ function renderMenuList() {
   document.getElementById('menu-list').innerHTML = html;
 }
 
+// ==== CART RENDER ====
 function renderCart() {
   let html = '';
   let total = 0, count = 0;
@@ -84,6 +86,7 @@ document.getElementById('order-btn').onclick = async function() {
   const note = document.getElementById('note').value;
   document.getElementById('order-btn').disabled = true;
   document.getElementById('thankyou').classList.remove('hide');
+  const now = new Date().toISOString();
   for (const [name, item] of Object.entries(cart)) {
     for (let i = 0; i < item.qty; i++) {
       await fetch(scriptURL, {
@@ -94,8 +97,8 @@ document.getElementById('order-btn').onclick = async function() {
           menu: name,
           price: item.price,
           qty: 1,
-          status: "unpaid",
-          note: note
+          note: note,
+          timestamp: now
         })
       });
     }
@@ -122,29 +125,29 @@ function getTableNumber() {
 }
 
 // ==== HISTORY ====
-function getUnpaidOrderSummary(data, tableNum) {
-  const rows = data.filter(
-    i => String(i.table).trim() === String(tableNum) && (i.status ?? "unpaid") === "unpaid"
-  );
+// รวม net qty ของแต่ละเมนูในโต๊ะนี้ (ไม่สนใจ status)
+function getNetOrderSummary(data, tableNum) {
+  const rows = data.filter(i => String(i.table).trim() === String(tableNum));
   const summary = {};
   rows.forEach(row => {
     const qty = Number(row.qty || 1);
     if (!summary[row.menu]) summary[row.menu] = { qty: 0, price: Number(row.price) || 0 };
     summary[row.menu].qty += qty;
-    summary[row.menu].price = Number(row.price) || 0;
+    if (Number(row.price) > 0) summary[row.menu].price = Number(row.price);
   });
   Object.keys(summary).forEach(menu => {
     if (summary[menu].qty <= 0) delete summary[menu];
   });
   return summary;
 }
+
 async function fetchOrderHistory() {
   const tableNum = getTableNumber();
   if (!tableNum) return;
   const url = `${scriptURL}?table=${tableNum}`;
   const res = await fetch(url);
   const data = await res.json();
-  const summary = getUnpaidOrderSummary(data, tableNum);
+  const summary = getNetOrderSummary(data, tableNum);
 
   let html = "";
   if (Object.keys(summary).length === 0) {
@@ -154,9 +157,39 @@ async function fetchOrderHistory() {
       html += `<div>${name} <b>x${item.qty}</b> <span style="color:#2362aa;">${item.price * item.qty} ฿</span></div>`;
     }
     html += `<div style="text-align:right;margin-top:5px;color:#1566a4;font-weight:bold;">รวม ${Object.values(summary).reduce((sum, i) => sum + i.price * i.qty, 0)} ฿</div>`;
+    html += `<button class="checkout-btn" onclick="checkoutOrder()">เช็คบิล</button>`;
   }
   document.getElementById('order-history').innerHTML = html;
 }
+
+// ==== CHECKOUT ====
+window.checkoutOrder = async function() {
+  const tableNum = getTableNumber();
+  if (!tableNum) return;
+  // ดึงยอดคงเหลือ net ปัจจุบัน
+  const url = `${scriptURL}?table=${tableNum}`;
+  const res = await fetch(url);
+  const data = await res.json();
+  const summary = getNetOrderSummary(data, tableNum);
+  if (!Object.keys(summary).length) return alert("ไม่มีรายการเช็คบิล");
+  if (!confirm("ต้องการเช็คบิลใช่หรือไม่?")) return;
+  const now = new Date().toISOString();
+  for (const [name, item] of Object.entries(summary)) {
+    await fetch(scriptURL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        table: tableNum,
+        menu: name,
+        price: item.price,
+        qty: -item.qty,
+        note: "paid",
+        timestamp: now
+      })
+    });
+  }
+  setTimeout(fetchOrderHistory, 900);
+};
 
 // ==== INIT ====
 renderMenuList();
