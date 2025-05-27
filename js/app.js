@@ -1,210 +1,165 @@
-// js/admin.js
+// js/app.js
 
-const scriptURL = "https://api.sheetbest.com/sheets/67a68e64-dca9-4eea-99b7-0431c5786cf6";
+// ==== CONFIG ====
+const MENUS = window.MENU_GROUPS;
+const scriptURL = "https://api.sheetbest.com/sheets/67a68e64-dca9-4eea-99b7-0431c5786cf6"; // เปลี่ยน URL ตามของคุณ
 
-// เก็บข้อมูลออเดอร์ดิบ
-let orderRaw = [];
+// ==== CART ====
+let cart = {};
 
-// โหลดออเดอร์ และ สร้าง dropdown โต๊ะ
-async function loadAdminOrders() {
-  document.getElementById('admin-result').innerHTML = "⏳ กำลังโหลดข้อมูล...";
-  document.getElementById('admin-orders').innerHTML = "";
-  const res = await fetch(scriptURL);
-  const data = await res.json();
-  orderRaw = data;
-
-  // หาโต๊ะที่ยังมีออเดอร์ unpaid+qty>0
-  const tableMap = {};
-  data.forEach(row => {
-    if ((row.status ?? "unpaid") === "unpaid" && Number(row.qty) > 0) {
-      tableMap[row.table] = true;
-    }
+function renderMenuList() {
+  let html = '';
+  MENUS.forEach(group => {
+    html += `<div class="section"><div class="section-title">${group.group}</div>`;
+    group.items.forEach((item, idx) => {
+      html += `
+        <div class="menu-item">
+          <span class="item-name">${item.name}</span>
+          <span class="item-price">${item.price} ฿</span>
+          <button class="add-btn" onclick="addToCart('${item.name.replace(/'/g,"\\'")}', ${item.price})">+</button>
+        </div>`;
+    });
+    html += '</div>';
   });
-  const tables = Object.keys(tableMap).sort((a, b) => Number(a) - Number(b));
-  const select = document.getElementById('select-table');
-  select.innerHTML = '';
-  tables.forEach(table => {
-    select.innerHTML += `<option value="${table}">โต๊ะ ${table}</option>`;
-  });
-
-  if (!tables.length) {
-    document.getElementById('admin-result').innerHTML = "🎉 ไม่มีโต๊ะที่ต้องชำระเงิน";
-    document.getElementById('admin-orders').innerHTML = "";
-    return;
-  } else {
-    document.getElementById('admin-result').innerHTML = "";
-  }
-  // โหลดรายการของโต๊ะแรกโดยอัตโนมัติ
-  select.value = tables[0];
-  renderOrderTable(tables[0]);
+  document.getElementById('menu-list').innerHTML = html;
 }
 
-// เปลี่ยนโต๊ะ
-document.getElementById('select-table').onchange = function() {
-  renderOrderTable(this.value);
-};
-
-// ฟังก์ชันแสดงออเดอร์ของโต๊ะนั้น (เฉพาะ status=unpaid และ qty>0)
-function renderOrderTable(tableNum) {
-  // รวมยอดออเดอร์ของโต๊ะนี้ที่ยังไม่จ่าย
-  const orders = {};
-  orderRaw.forEach(row => {
-    if (String(row.table).trim() !== String(tableNum)) return;
-    if ((row.status ?? "unpaid") !== "unpaid") return;
-    if (!row.menu) return;
-    if (!orders[row.menu]) {
-      orders[row.menu] = {
-        menu: row.menu,
-        qty: 0,
-        price: Number(row.price) || 0,
-        note: row.note || "",
-        ids: [],
-      };
-    }
-    orders[row.menu].qty += Number(row.qty || 1);
-    // ใช้ราคาขายจริง (ไม่เอาราคา 0 ถ้ามี)
-    if (Number(row.price) > 0) orders[row.menu].price = Number(row.price);
-    orders[row.menu].note = row.note || "";
-    orders[row.menu].ids.push(row._id || null);
-  });
-  // Filter เฉพาะที่ qty > 0
-  const orderArr = Object.values(orders).filter(o => o.qty > 0);
-
-  let html = "";
-  if (!orderArr.length) {
-    html = "<div style='color:#bbb'>ไม่มีออเดอร์ในโต๊ะนี้</div>";
-    document.getElementById('admin-orders').innerHTML = html;
-    return;
-  }
-
-  html += `<table class="order-table"><tr>
-      <th>เมนู</th>
-      <th>จำนวน</th>
-      <th>ราคา</th>
-      <th>หมายเหตุ</th>
-      <th>ลบ</th>
-    </tr>`;
-
-  let sum = 0;
-  for (const o of orderArr) {
-    sum += o.qty * o.price;
-    html += `<tr>
-      <td>${o.menu}</td>
-      <td>
-        <input class="input-qty" type="number" min="1" max="99" value="${o.qty}" 
-          onchange="adminUpdateQty('${tableNum}','${o.menu.replace(/'/g,"\\'")}', this.value)">
-      </td>
-      <td>${o.price * o.qty} ฿</td>
-      <td>${o.note || ''}</td>
-      <td>
-        <button class="order-action-btn delete-btn" onclick="adminDeleteOrder('${tableNum}','${o.menu.replace(/'/g,"\\'")}')">ลบ</button>
-      </td>
-    </tr>`;
-  }
-  html += `<tr><td colspan="2" style="text-align:right;font-weight:bold;">รวม</td><td style="font-weight:bold;">${sum} ฿</td><td colspan="2"></td></tr>`;
-  html += `</table>`;
-  html += `<button class="order-action-btn" onclick="adminCheckout('${tableNum}')">✅ เช็คบิล</button>`;
-  document.getElementById('admin-orders').innerHTML = html;
-}
-
-// Soft delete ด้วยการเพิ่มแถว qty ติดลบ (status=unpaid)
-window.adminDeleteOrder = async function(table, menu) {
-  if (!confirm(`ต้องการลบ "${menu}" ของโต๊ะ ${table} ใช่ไหม?`)) return;
-  // หา qty ปัจจุบัน และ price
-  let qty = 0;
-  let price = 0;
-  orderRaw.forEach(row => {
-    if (String(row.table).trim() === String(table) &&
-        (row.status ?? "unpaid") === "unpaid" &&
-        row.menu === menu) {
-      qty += Number(row.qty || 1);
-      if (Number(row.price) > 0) price = Number(row.price);
-    }
-  });
-  if (qty <= 0) return;
-  // ใส่แถว qty ติดลบ
-  await fetch(scriptURL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      table: table,
-      menu: menu,
-      price: price,
-      qty: -qty,
-      status: "unpaid",
-      note: "ลบโดยแอดมิน"
-    })
-  });
-  setTimeout(loadAdminOrders, 900);
-}
-
-// แก้จำนวน = ใส่ row diff (status=unpaid)
-window.adminUpdateQty = async function(table, menu, newQty) {
-  newQty = Math.max(1, Math.min(99, Number(newQty)));
-  let qty = 0;
-  let price = 0;
-  orderRaw.forEach(row => {
-    if (String(row.table).trim() === String(table) &&
-        (row.status ?? "unpaid") === "unpaid" &&
-        row.menu === menu) {
-      qty += Number(row.qty || 1);
-      if (Number(row.price) > 0) price = Number(row.price);
-    }
-  });
-  if (qty === newQty) return;
-  const diff = newQty - qty;
-  if (diff === 0) return;
-  await fetch(scriptURL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      table: table,
-      menu: menu,
-      price: price,
-      qty: diff,
-      status: "unpaid",
-      note: "แก้ไขจำนวนโดยแอดมิน"
-    })
-  });
-  setTimeout(loadAdminOrders, 900);
-}
-
-// เช็คบิล = soft delete ทุกเมนูที่ยังค้าง (status=paid, ราคาจริง)
-window.adminCheckout = async function(table) {
-  if (!confirm(`เช็คบิลโต๊ะ ${table} ยืนยัน?`)) return;
-
-  // รวมยอดปัจจุบัน (filter qty > 0)
-  const orders = {};
-  const prices = {};
-  orderRaw.forEach(row => {
-    if (String(row.table).trim() !== String(table)) return;
-    if ((row.status ?? "unpaid") !== "unpaid") return;
-    if (!row.menu) return;
-    if (!orders[row.menu]) orders[row.menu] = 0;
-    orders[row.menu] += Number(row.qty || 1);
-    if (Number(row.price) > 0) prices[row.menu] = Number(row.price);
-  });
-
-  for (const [menu, qty] of Object.entries(orders)) {
+function renderCart() {
+  let html = '';
+  let total = 0, count = 0;
+  Object.keys(cart).forEach(name => {
+    const qty = cart[name].qty;
     if (qty > 0) {
+      total += qty * cart[name].price;
+      count += qty;
+      html += `
+      <div class="cart-row">
+        <span class="cart-name">${name}</span>
+        <span class="cart-price">${cart[name].price * qty} ฿</span>
+        <input type="number" min="1" max="99" value="${qty}" onchange="setQty('${name.replace(/'/g,"\\'")}', this.value)">
+        <button class="cart-remove" onclick="removeFromCart('${name.replace(/'/g,"\\'")}')">ลบ</button>
+      </div>`;
+    }
+  });
+  html += `<div id="total">รวม ${total} ฿</div>`;
+  document.getElementById('cart').innerHTML = html || "<div style='color:#bbb'>ยังไม่มีสินค้าในตะกร้า</div>";
+  document.getElementById('cart-count').textContent = count ? count : '';
+  document.getElementById('order-btn').disabled = count === 0;
+}
+
+window.addToCart = function(name, price) {
+  if (!cart[name]) cart[name] = { qty: 0, price: price };
+  cart[name].qty += 1;
+  renderCart();
+  // shake effect
+  const cartIcon = document.getElementById('cart-icon-box');
+  cartIcon.classList.remove('shake');
+  void cartIcon.offsetWidth;
+  cartIcon.classList.add('shake');
+  setTimeout(() => cartIcon.classList.remove('shake'), 400);
+}
+
+window.setQty = function(name, val) {
+  val = Math.max(1, Math.min(99, Number(val)));
+  cart[name].qty = val;
+  renderCart();
+}
+
+window.removeFromCart = function(name) {
+  if (cart[name]) {
+    cart[name].qty -= 1;
+    if (cart[name].qty <= 0) delete cart[name];
+    renderCart();
+  }
+}
+
+window.scrollToCart = function() {
+  document.getElementById('cart').scrollIntoView({ behavior: "smooth" });
+}
+
+// ==== ORDER ====
+document.getElementById('order-btn').onclick = async function() {
+  const tableNum = getTableNumber();
+  if (!tableNum) return alert('ไม่พบหมายเลขโต๊ะ');
+  const note = document.getElementById('note').value;
+  document.getElementById('order-btn').disabled = true;
+  document.getElementById('thankyou').classList.remove('hide');
+  for (const [name, item] of Object.entries(cart)) {
+    for (let i = 0; i < item.qty; i++) {
       await fetch(scriptURL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          table: table,
-          menu: menu,
-          price: prices[menu] || 0,
-          qty: -qty,
-          status: "paid",
-          note: "เช็คบิล"
+          table: tableNum,
+          menu: name,
+          price: item.price,
+          qty: 1,
+          status: "unpaid",
+          note: note
         })
       });
     }
   }
-  document.getElementById('admin-result').innerHTML = "✅ เช็คบิลเรียบร้อย";
-  setTimeout(()=>{document.getElementById('admin-result').innerHTML='';},2000);
-  setTimeout(loadAdminOrders, 900);
+  cart = {};
+  renderCart();
+  setTimeout(() => {
+    document.getElementById('thankyou').classList.add('hide');
+    document.getElementById('note').value = '';
+    fetchOrderHistory();
+  }, 1500);
+};
+
+// ==== TABLE ====
+function getTableNumber() {
+  const url = new URL(window.location.href);
+  let t = url.searchParams.get('table');
+  if (!t) {
+    const hash = url.hash.replace("#", "");
+    if (/^\d+$/.test(hash)) t = hash;
+  }
+  document.getElementById('table-number').textContent = t ? "โต๊ะ " + t : "";
+  return t;
 }
 
-// โหลดข้อมูลครั้งแรก
-loadAdminOrders();
+// ==== HISTORY ====
+function getUnpaidOrderSummary(data, tableNum) {
+  const rows = data.filter(
+    i => String(i.table).trim() === String(tableNum) && (i.status ?? "unpaid") === "unpaid"
+  );
+  const summary = {};
+  rows.forEach(row => {
+    const qty = Number(row.qty || 1);
+    if (!summary[row.menu]) summary[row.menu] = { qty: 0, price: Number(row.price) || 0 };
+    summary[row.menu].qty += qty;
+    summary[row.menu].price = Number(row.price) || 0;
+  });
+  Object.keys(summary).forEach(menu => {
+    if (summary[menu].qty <= 0) delete summary[menu];
+  });
+  return summary;
+}
+async function fetchOrderHistory() {
+  const tableNum = getTableNumber();
+  if (!tableNum) return;
+  const url = `${scriptURL}?table=${tableNum}`;
+  const res = await fetch(url);
+  const data = await res.json();
+  const summary = getUnpaidOrderSummary(data, tableNum);
+
+  let html = "";
+  if (Object.keys(summary).length === 0) {
+    html = "<div style='color:#bbb'>ยังไม่มีออเดอร์</div>";
+  } else {
+    for (const [name, item] of Object.entries(summary)) {
+      html += `<div>${name} <b>x${item.qty}</b> <span style="color:#2362aa;">${item.price * item.qty} ฿</span></div>`;
+    }
+    html += `<div style="text-align:right;margin-top:5px;color:#1566a4;font-weight:bold;">รวม ${Object.values(summary).reduce((sum, i) => sum + i.price * i.qty, 0)} ฿</div>`;
+  }
+  document.getElementById('order-history').innerHTML = html;
+}
+
+// ==== INIT ====
+renderMenuList();
+renderCart();
+fetchOrderHistory();
+window.addEventListener("focus", fetchOrderHistory);
