@@ -1,10 +1,11 @@
-// js/admin.js (เวอร์ชั่น Soft Delete เช็คบิล)
+// js/admin.js
 
 const scriptURL = "https://api.sheetbest.com/sheets/67a68e64-dca9-4eea-99b7-0431c5786cf6";
 
 // เก็บข้อมูลออเดอร์ดิบ
 let orderRaw = [];
 
+// โหลดออเดอร์ และ สร้าง dropdown โต๊ะ
 async function loadAdminOrders() {
   document.getElementById('admin-result').innerHTML = "⏳ กำลังโหลดข้อมูล...";
   document.getElementById('admin-orders').innerHTML = "";
@@ -38,10 +39,12 @@ async function loadAdminOrders() {
   renderOrderTable(tables[0]);
 }
 
+// เปลี่ยนโต๊ะ
 document.getElementById('select-table').onchange = function() {
   renderOrderTable(this.value);
 };
 
+// ฟังก์ชันแสดงออเดอร์ของโต๊ะนั้น
 function renderOrderTable(tableNum) {
   // รวมยอดออเดอร์ของโต๊ะนี้ที่ยังไม่จ่าย
   const orders = {};
@@ -129,7 +132,7 @@ window.adminDeleteOrder = async function(table, menu) {
       note: "ลบโดยแอดมิน"
     })
   });
-  loadAdminOrders();
+  setTimeout(loadAdminOrders, 900);
 }
 
 window.adminUpdateQty = async function(table, menu, newQty) {
@@ -161,24 +164,28 @@ window.adminUpdateQty = async function(table, menu, newQty) {
       note: "แก้ไขจำนวนโดยแอดมิน"
     })
   });
-  loadAdminOrders();
+  setTimeout(loadAdminOrders, 900);
 }
 
 // เช็คบิล = soft delete ทุกเมนูที่ยังค้าง (ของโต๊ะนี้)
 window.adminCheckout = async function(table) {
   if (!confirm(`เช็คบิลโต๊ะ ${table} ยืนยัน?`)) return;
-  // รวมยอดที่ค้างของแต่ละเมนูในโต๊ะนี้
-  const orderToDelete = {};
+
+  // รวมยอดที่แสดงในตารางล่าสุด
+  // อิงจาก renderOrderTable (filter qty > 0 แล้ว)
+  const orders = {};
   orderRaw.forEach(row => {
-    if (String(row.table).trim() === String(table) &&
-        (row.status ?? "unpaid") === "unpaid" &&
-        row.menu) {
-      if (!orderToDelete[row.menu]) orderToDelete[row.menu] = 0;
-      orderToDelete[row.menu] += Number(row.qty || 1);
+    if (String(row.table).trim() !== String(table)) return;
+    if ((row.status ?? "unpaid") !== "unpaid") return;
+    if (!row.menu) return;
+    if (!orders[row.menu]) {
+      orders[row.menu] = 0;
     }
+    orders[row.menu] += Number(row.qty || 1);
   });
-  // ใส่ row ติดลบทีเดียวทุกเมนู
-  for (const [menu, qty] of Object.entries(orderToDelete)) {
+
+  // ใส่ row ติดลบทีละเมนู (เฉพาะ qty > 0)
+  for (const [menu, qty] of Object.entries(orders)) {
     if (qty > 0) {
       await fetch(scriptURL, {
         method: "POST",
@@ -196,7 +203,7 @@ window.adminCheckout = async function(table) {
   }
   document.getElementById('admin-result').innerHTML = "✅ เช็คบิลเรียบร้อย";
   setTimeout(()=>{document.getElementById('admin-result').innerHTML='';},2000);
-  loadAdminOrders();
+  setTimeout(loadAdminOrders, 900);
 }
 
 // โหลดข้อมูลครั้งแรก
