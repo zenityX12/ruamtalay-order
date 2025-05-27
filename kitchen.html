@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ครัว – รวมทะเล ข้าวต้มปลา</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { background:#f8f9fa; font-family: sans-serif; }
+    .container { max-width:800px; margin:24px auto; padding:0 16px; }
+    h1 { text-align:center; color:#333; margin-bottom:16px; }
+    #refresh-btn { background:#007bff; color:#fff; border:none; padding:8px 14px; border-radius:6px; cursor:pointer; margin-bottom:16px; }
+    #refresh-btn:hover { background:#0056b3; }
+    .table-card { background:#fff; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,0.1); margin-bottom:12px; overflow:hidden; }
+    .table-header { background:#17a2b8; color:#fff; padding:8px 12px; font-size:1.1em; }
+    .order-list { list-style:none; margin:0; padding:0; }
+    .order-list li { display:flex; justify-content:space-between; padding:8px 12px; border-bottom:1px solid #eee; }
+    .order-list li:last-child { border-bottom:none; }
+    .menu-name { color:#333; }
+    .menu-qty { font-weight:bold; }
+    @media(max-width:600px) {
+      .table-header { font-size:1em; text-align:center; }
+      .order-list li { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧑‍🍳 ระบบครัว – รวมทะเล ข้าวต้มปลา</h1>
+    <button id="refresh-btn" onclick="loadKitchen()">รีเฟรชออเดอร์</button>
+    <div id="kitchen-orders"></div>
+  </div>
+  <script src="js/kitchen.js"></script>
+</body>
+</html>
