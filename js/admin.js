@@ -195,7 +195,7 @@ window.adminCheckout = async function(table) {
           menu: menu,
           price: 0,
           qty: -qty,
-          status: "unpaid",
+          status: "paid",
           note: "เช็คบิล"
         })
       });
