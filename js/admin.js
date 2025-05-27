@@ -1,9 +1,13 @@
 // js/admin.js
 
+// ==== CONFIG ====
 const scriptURL = "https://api.sheetbest.com/sheets/67a68e64-dca9-4eea-99b7-0431c5786cf6";
+// เปลี่ยนให้ตรงกับ URL หน้า Order ของลูกค้า
+const customerBaseURL = "https://zenityx12.github.io/ruamtalay-order/";
+
 let orderRaw = [];
 
-// โหลดออเดอร์ทั้งหมด + สร้าง dropdown โต๊ะ
+// โหลดออเดอร์ทั้งหมด + สร้าง dropdown โต๊ะ + อัปเดตลิงก์ลูกค้า
 async function loadAdminOrders() {
   document.getElementById('admin-result').textContent = "⏳ กำลังโหลด...";
   document.getElementById('admin-orders').innerHTML = "";
@@ -21,22 +25,36 @@ async function loadAdminOrders() {
     netByTable[t][m] = (netByTable[t][m] || 0) + q;
   });
 
-  // หาโต๊ะที่ยังมี net qty >0
+  // หาโต๊ะที่ยังมี net qty > 0
   const tables = Object.keys(netByTable)
     .filter(t => Object.values(netByTable[t]).some(q => q > 0))
-    .sort((a,b)=>Number(a)-Number(b));
+    .sort((a, b) => Number(a) - Number(b));
 
+  // สร้าง dropdown
   const sel = document.getElementById('select-table');
-  sel.innerHTML = tables.map(t=>`<option value="${t}">โต๊ะ ${t}</option>`).join('');
+  sel.innerHTML = tables.map(t => `<option value="${t}">โต๊ะ ${t}</option>`).join('');
 
   if (!tables.length) {
     document.getElementById('admin-result').textContent = "🎉 ไม่มีออเดอร์ค้าง";
+    document.getElementById('customer-link').href = "#";
     return;
   }
+
   document.getElementById('admin-result').textContent = "";
+  // เลือกโต๊ะแรก
   sel.value = tables[0];
-  renderOrderTable(tables[0]);
+  // อัปเดตลิงก์ไปหน้าลูกค้า
+  document.getElementById('customer-link').href = `${customerBaseURL}?table=${sel.value}`;
+
+  renderOrderTable(sel.value);
 }
+
+// เมื่อเปลี่ยนโต๊ะใน dropdown
+document.getElementById('select-table').onchange = function() {
+  const t = this.value;
+  document.getElementById('customer-link').href = `${customerBaseURL}?table=${t}`;
+  renderOrderTable(t);
+};
 
 // แสดงตารางออเดอร์ net qty ของโต๊ะที่เลือก
 function renderOrderTable(table) {
@@ -45,19 +63,19 @@ function renderOrderTable(table) {
   orderRaw.forEach(r => {
     if (String(r.table).trim() !== String(table) || !r.menu) return;
     const m = r.menu, q = Number(r.qty || 0), p = Number(r.price || 0);
-    net[m] = (net[m]||0) + q;
-    if (p>0) priceMap[m] = p;
+    net[m] = (net[m] || 0) + q;
+    if (p > 0) priceMap[m] = p;
     if (r.note) noteMap[m] = r.note;
   });
 
-  // กรองเมนูที่ qty>0
+  // กรองเมนูที่ qty > 0
   const menus = Object.entries(net)
-    .filter(([,q])=>q>0)
-    .map(([m,q])=>({
+    .filter(([,q]) => q > 0)
+    .map(([m,q]) => ({
       menu: m,
       qty: q,
-      price: priceMap[m]||getLastPrice(table,m),
-      note: noteMap[m]||''
+      price: priceMap[m] || getLastPrice(table, m),
+      note: noteMap[m] || ''
     }));
 
   if (!menus.length) {
@@ -66,6 +84,7 @@ function renderOrderTable(table) {
     return;
   }
 
+  // สร้าง HTML ตาราง
   let sum = 0;
   let html = `<table class="order-table">
     <tr>
@@ -81,7 +100,7 @@ function renderOrderTable(table) {
                value="${o.qty}"
                onchange="adminUpdateQty('${table}','${o.menu.replace(/'/g,"\\'")}',this.value)">
       </td>
-      <td>${o.qty*o.price} ฿</td>
+      <td>${o.qty * o.price} ฿</td>
       <td>${o.note}</td>
       <td>
         <button class="order-action-btn delete-btn"
@@ -108,12 +127,12 @@ function renderOrderTable(table) {
 }
 
 // ดึงราคาเดิมล่าสุด (fallback)
-function getLastPrice(table,menu) {
-  for (let i=orderRaw.length-1; i>=0; i--) {
+function getLastPrice(table, menu) {
+  for (let i = orderRaw.length - 1; i >= 0; i--) {
     const r = orderRaw[i];
-    if (String(r.table).trim()===String(table) &&
-        r.menu===menu &&
-        Number(r.price)>0) {
+    if (String(r.table).trim() === String(table) &&
+        r.menu === menu &&
+        Number(r.price) > 0) {
       return Number(r.price);
     }
   }
@@ -121,21 +140,21 @@ function getLastPrice(table,menu) {
 }
 
 // ลบเมนู (soft delete)
-window.adminDeleteOrder = async function(table,menu) {
+window.adminDeleteOrder = async function(table, menu) {
   if (!confirm(`ลบ "${menu}" โต๊ะ ${table}?`)) return;
-  let qty=0, price=0;
+  let qty = 0, price = 0;
   orderRaw.forEach(r => {
-    if (String(r.table).trim()===String(table) && r.menu===menu) {
-      qty += Number(r.qty||0);
-      if (Number(r.price)>0) price = Number(r.price);
+    if (String(r.table).trim() === String(table) && r.menu === menu) {
+      qty += Number(r.qty || 0);
+      if (Number(r.price) > 0) price = Number(r.price);
     }
   });
-  price = price || getLastPrice(table,menu);
-  if (qty<=0) return;
+  price = price || getLastPrice(table, menu);
+  if (qty <= 0) return;
   const now = new Date().toISOString();
   await fetch(scriptURL, {
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       table: table,
       menu: menu,
@@ -149,22 +168,22 @@ window.adminDeleteOrder = async function(table,menu) {
 };
 
 // แก้จำนวน (soft update)
-window.adminUpdateQty = async function(table,menu,newQty) {
-  newQty = Math.max(1,Math.min(99,Number(newQty)));
-  let oldQty=0, price=0;
+window.adminUpdateQty = async function(table, menu, newQty) {
+  newQty = Math.max(1, Math.min(99, Number(newQty)));
+  let oldQty = 0, price = 0;
   orderRaw.forEach(r => {
-    if (String(r.table).trim()===String(table) && r.menu===menu) {
-      oldQty += Number(r.qty||0);
-      if (Number(r.price)>0) price = Number(r.price);
+    if (String(r.table).trim() === String(table) && r.menu === menu) {
+      oldQty += Number(r.qty || 0);
+      if (Number(r.price) > 0) price = Number(r.price);
     }
   });
-  price = price || getLastPrice(table,menu);
+  price = price || getLastPrice(table, menu);
   const diff = newQty - oldQty;
-  if (diff===0) return;
+  if (diff === 0) return;
   const now = new Date().toISOString();
   await fetch(scriptURL, {
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       table: table,
       menu: menu,
@@ -183,16 +202,16 @@ window.adminCheckout = async function(table) {
   const now = new Date().toISOString();
   const net = {};
   orderRaw.forEach(r => {
-    if (String(r.table).trim()===String(table) && r.menu) {
-      net[r.menu] = (net[r.menu]||0) + Number(r.qty||0);
+    if (String(r.table).trim() === String(table) && r.menu) {
+      net[r.menu] = (net[r.menu] || 0) + Number(r.qty || 0);
     }
   });
-  for (const [menu,qty] of Object.entries(net)) {
-    if (qty>0) {
-      const price = getLastPrice(table,menu);
+  for (const [menu, qty] of Object.entries(net)) {
+    if (qty > 0) {
+      const price = getLastPrice(table, menu);
       await fetch(scriptURL, {
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           table: table,
           menu: menu,
@@ -205,8 +224,8 @@ window.adminCheckout = async function(table) {
     }
   }
   document.getElementById('admin-result').textContent = "✅ เช็คบิลเรียบร้อย";
-  setTimeout(()=>document.getElementById('admin-result').textContent='',2000);
-  setTimeout(loadAdminOrders,800);
+  setTimeout(() => document.getElementById('admin-result').textContent = '', 2000);
+  setTimeout(loadAdminOrders, 800);
 };
 
 // เริ่มต้น
