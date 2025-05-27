@@ -111,11 +111,13 @@ window.adminDeleteOrder = async function(table, menu) {
   if (!confirm(`ต้องการลบ "${menu}" ของโต๊ะ ${table} ใช่ไหม?`)) return;
   // หา qty ปัจจุบัน
   let qty = 0;
+  let price = 0;
   orderRaw.forEach(row => {
     if (String(row.table).trim() === String(table) &&
         (row.status ?? "unpaid") === "unpaid" &&
         row.menu === menu) {
       qty += Number(row.qty || 1);
+      price = Number(row.price) || 0;
     }
   });
   if (qty <= 0) return;
@@ -126,7 +128,7 @@ window.adminDeleteOrder = async function(table, menu) {
     body: JSON.stringify({
       table: table,
       menu: menu,
-      price: 0,
+      price: price,
       qty: -qty,
       status: "unpaid",
       note: "ลบโดยแอดมิน"
@@ -167,24 +169,22 @@ window.adminUpdateQty = async function(table, menu, newQty) {
   setTimeout(loadAdminOrders, 900);
 }
 
-// เช็คบิล = soft delete ทุกเมนูที่ยังค้าง (ของโต๊ะนี้)
+// เช็คบิล = soft delete ทุกเมนูที่ยังค้าง (ของโต๊ะนี้) ด้วย status=paid และราคาจริง
 window.adminCheckout = async function(table) {
   if (!confirm(`เช็คบิลโต๊ะ ${table} ยืนยัน?`)) return;
 
-  // รวมยอดที่แสดงในตารางล่าสุด
-  // อิงจาก renderOrderTable (filter qty > 0 แล้ว)
+  // รวมยอดปัจจุบัน (filter qty > 0)
   const orders = {};
+  const prices = {};
   orderRaw.forEach(row => {
     if (String(row.table).trim() !== String(table)) return;
     if ((row.status ?? "unpaid") !== "unpaid") return;
     if (!row.menu) return;
-    if (!orders[row.menu]) {
-      orders[row.menu] = 0;
-    }
+    if (!orders[row.menu]) orders[row.menu] = 0;
     orders[row.menu] += Number(row.qty || 1);
+    prices[row.menu] = Number(row.price) || 0; // จำราคาจริงไว้
   });
 
-  // ใส่ row ติดลบทีละเมนู (เฉพาะ qty > 0)
   for (const [menu, qty] of Object.entries(orders)) {
     if (qty > 0) {
       await fetch(scriptURL, {
@@ -193,7 +193,7 @@ window.adminCheckout = async function(table) {
         body: JSON.stringify({
           table: table,
           menu: menu,
-          price: 0,
+          price: prices[menu] || 0,  // <<== ใช้ราคาจริง
           qty: -qty,
           status: "paid",
           note: "เช็คบิล"
