@@ -9,6 +9,7 @@
     .admin-container { max-width:600px; margin:36px auto; padding:20px; background:#fff; border-radius:12px; box-shadow:0 2px 12px rgba(0,0,0,0.1); }
     .admin-head { font-size:1.2em; color:#2076c7; margin-bottom:12px; }
     .table-selector { margin-bottom:16px; }
+    .table-selector a { text-decoration:none; color:#1566a4; font-weight:500; }
     .order-table { width:100%; border-collapse:collapse; margin-bottom:16px; }
     .order-table th, .order-table td { border:1px solid #ddd; padding:6px; text-align:center; }
     .order-table th { background:#f0f8ff; }
@@ -32,6 +33,7 @@
       <label>เลือกโต๊ะ:</label>
       <select id="select-table"></select>
       <button id="refresh-btn" onclick="loadAdminOrders()">รีเฟรช</button>
+      <a id="customer-link" href="#" target="_blank">➡ ไปหน้าออเดอร์ลูกค้า</a>
     </div>
     <div id="admin-result"></div>
     <div id="admin-orders"></div>
