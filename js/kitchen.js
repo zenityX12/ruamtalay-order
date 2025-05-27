@@ -1,7 +1,6 @@
 // js/kitchen.js
 
 const scriptURL = "https://api.sheetbest.com/sheets/67a68e64-dca9-4eea-99b7-0431c5786cf6";
-
 let orderRaw = [];
 
 // โหลดออเดอร์แล้วแสดงผล
@@ -22,29 +21,37 @@ async function loadKitchen() {
     netByTable[t][m] = (netByTable[t][m] || 0) + q;
   });
 
-  // สร้างการ์ดแต่ละโต๊ะที่มีรายการ
+  // สร้างการ์ดแต่ละโต๊ะ
   let html = '';
   Object.keys(netByTable)
-    .sort((a,b)=>Number(a)-Number(b))
+    .sort((a,b) => Number(a) - Number(b))
     .forEach(table => {
-      // กรองเมนูที่ qty>0
+      // กรองเมนูที่ qty > 0
       const items = Object.entries(netByTable[table])
-        .filter(([,qty])=>qty>0)
-        .map(([menu,qty])=>({ menu, qty }));
+        .filter(([,qty]) => qty > 0)
+        .map(([menu,qty]) => ({ menu, qty }));
       if (!items.length) return;
       html += `<div class="table-card">
         <div class="table-header">โต๊ะ ${table}</div>
         <ul class="order-list">`;
       items.forEach(o => {
-        html += `<li>
+        html += `<li data-table="${table}" data-menu="${o.menu}">
           <span class="menu-name">${o.menu}</span>
-          <span class="menu-qty">${o.qty}</span>
+          <span class="menu-qty">x${o.qty}</span>
         </li>`;
       });
       html += `</ul></div>`;
     });
 
-  container.innerHTML = html || "<div style='color:#666; text-align:center;'>ไม่มีออเดอร์ค้าง</div>";
+  container.innerHTML = html || 
+    "<div style='color:#666; text-align:center;'>ไม่มีออเดอร์ค้าง</div>";
+
+  // ผูกคลิกให้แต่ละ <li> toggle class .done
+  document.querySelectorAll('.order-list li').forEach(li => {
+    li.addEventListener('click', () => {
+      li.classList.toggle('done');
+    });
+  });
 }
 
 // เรียกครั้งแรก
