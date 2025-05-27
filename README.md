@@ -19,34 +19,6 @@
 
 ---
 
-## 🚀 การติดตั้งและโฮสต์บน GitHub Pages
-
-1. สร้าง Repository บน GitHub (ชื่อใดก็ได้)
-2. Clone ลงเครื่อง:
-
-   ```bash
-   ```
-
-git clone [https://github.com/](https://github.com/)<username>/<repo>.git
-cd <repo>
-
-````
-3. วางไฟล์ทั้งหมด (`index.html`, `admin.html`, `kitchen.html`, `style.css` และโฟลเดอร์ `js/`) ลงใน repository
-4. Commit และ Push:
-```bash
-git add .
-git commit -m "Initial commit"
-git push origin main
-````
-
-5. เปิดใช้งาน GitHub Pages:
-
-   * ไปที่ Settings > Pages
-   * Source: เลือก `main` branch แล้วกด Save
-   * รอระบบสร้างเสร็จ แล้ว GitHub จะแจ้ง URL ของเว็บไซต์
-
----
-
 ## 📝 คู่มือภาษาไทย
 
 ### 1. หน้า Order (ลูกค้า)
@@ -124,28 +96,6 @@ git push origin main
    └─ kitchen.js      # Kitchen logic
 ```
 
-### 🚀 Deployment on GitHub Pages
-
-1. Create a new GitHub repository.
-2. Clone it:
-
-   ```bash
-   ```
-
-git clone [https://github.com/](https://github.com/)<username>/<repo>.git
-cd <repo>
-
-````
-3. Add all files (`index.html`, `admin.html`, `kitchen.html`, `style.css`, `js/`)
-4. Commit & push:
-```bash
-git add .
-git commit -m "Initial commit"
-git push origin main
-````
-
-5. Go to **Settings > Pages**, choose `main` branch, and save.
-6. Your site URL will appear; e.g. `https://<username>.github.io/<repo>/`
 
 ### 📘 Usage
 
